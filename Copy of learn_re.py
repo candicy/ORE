@@ -26,9 +26,9 @@ t_config = time()
 
 # set hyper-parameters
 parser = argparse.ArgumentParser()
-parser.add_argument('--load_train_path', type=str, default="data_examples/train_data.json")  # your path
-parser.add_argument('--load_test_path', type=str, default="data_examples/test_data.json")  # your path
-parser.add_argument('--gpu_ids', type=str, default='0')
+parser.add_argument('--load_train_path', type=str, default="your/path/to/put/train_data.json")  # your path
+parser.add_argument('--load_test_path', type=str, default="your/path/to/put/test_data.json")  # your path
+parser.add_argument('--gpu_ids', type=str, default='0, 1, 2, 3')
 parser.add_argument('--model_name', type=str, default='bert_chinese')  # used pre-trained language model name
 parser.add_argument('--suffix_name', type=str, default='re')  # fine-tuned model suffix name
 
@@ -94,15 +94,15 @@ n_gpu = torch.cuda.device_count()
 if n_gpu > 0:
     torch.cuda.manual_seed_all(args.seed)
 
-# # initialize model
-# print('init model...')
-# utils.torch_show_all_params(model)
-# utils.torch_init_model(model, args.init_restore_dir)  # load the saved model according to the checkpoint_dir when prediction
-# if args.float16:
-#     model.half()
-# model.to(device)
-# if n_gpu > 1:
-#     model = torch.nn.DataParallel(model)
+# initialize model
+print('init model...')
+utils.torch_show_all_params(model)
+utils.torch_init_model(model, args.init_restore_dir)  # load the saved model according to the checkpoint_dir when prediction
+if args.float16:
+    model.half()
+model.to(device)
+if n_gpu > 1:
+    model = torch.nn.DataParallel(model)
 
 print("Initial Configuaration Time: {}".format(time() - t_config))
 
@@ -243,7 +243,6 @@ def get_input_ids(tokenizer, text, entity_head, entity_tail, relation=None, max_
 
 def raw2json(tokenizer, load_path, save_path=None, max_lines=100, max_seq_length=128, train_split=0.95, print_time=100,
              blank_ratio=0.4, num_relation=-1, repeat_time=[1, 1, 1]):
-    
     global DATA_DIR
     features_train = list()
     features_dev = list()
@@ -253,8 +252,7 @@ def raw2json(tokenizer, load_path, save_path=None, max_lines=100, max_seq_length
     c_neg = 0  # count negative samples
     dict_relation = dict()  # record relation types
 
-    
-    with open(load_path, "r", encoding="gbk") as f:
+    with open(load_path, "r") as f:
         for i_line, line in enumerate(f):
             if i_line > max_lines:  # control the number of operated samples
                 break
@@ -914,7 +912,7 @@ if __name__ == "__main__":
              repeat_time=args.repeat_time)
 
     # train & evaluate model
-    train(args=args, tokenizer=tokenizer, model=None, is_cuda=is_cuda, n_gpu=n_gpu)
+    train(args=args, tokenizer=tokenizer, model=model, is_cuda=is_cuda, n_gpu=n_gpu)
 
     # predict only one sample:
     result = predict_one(s, args=args, tokenizer=tokenizer, model=model, is_cuda=is_cuda)

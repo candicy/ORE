@@ -1,0 +1,37 @@
+------------ Options -------------
+load_train_path: data_examples/train_data.json
+load_test_path: data_examples/test_data.json
+gpu_ids: 0
+model_name: bert_chinese
+suffix_name: re
+train_epochs: 10
+n_batch: 128
+class_num: 1
+lr: 5e-05
+dropout: 0.1
+clip_norm: 1.0
+warmup_rate: 0.05
+schedule: warmup_linear
+weight_decay_rate: 0.01
+seed: 42
+float16: False
+eval_steps: 0.5
+save_best: True
+vocab_size: 21128
+cls_weight: None
+max_seq_length: 128
+max_lines: 300000
+train_split: 0.6
+blank_ratio: 0.5
+num_relation: -1
+repeat_time: [6, 4, 5]
+train_dir: pretrain_data/re_train.pkl
+dev_dir: pretrain_data/re_dev.pkl
+bert_config_file: pretrain_models/bert_chinese/bert_config.json
+vocab_file: pretrain_models/bert_chinese/vocab.txt
+init_restore_dir: pretrain_models/bert_chinese/pytorch_model.pth
+checkpoint_dir: check_points/bert_chinese_re
+setting_file: check_points/bert_chinese_re/setting.txt
+log_file: check_points/bert_chinese_re/log.txt
+test_log: test_log_bert_chinese_re.txt
+-------------- End ----------------
