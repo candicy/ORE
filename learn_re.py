@@ -33,7 +33,7 @@ parser.add_argument('--model_name', type=str, default='bert_chinese')  # used pr
 parser.add_argument('--suffix_name', type=str, default='re')  # fine-tuned model suffix name
 
 parser.add_argument('--train_epochs', type=int, default=10)
-parser.add_argument('--n_batch', type=int, default=128)
+parser.add_argument('--n_batch', type=int, default=16)
 parser.add_argument('--class_num', type=int, default=1)  # does relation exist between current entities? yes or no
 parser.add_argument('--lr', type=float, default=5e-5)
 parser.add_argument('--dropout', type=float, default=0.1)
@@ -86,23 +86,30 @@ random.seed(args.seed)
 np.random.seed(args.seed)
 torch.manual_seed(args.seed)
 
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print('There are %d GPU(s) available.' % torch.cuda.device_count())
+    print('We will use the GPU:', torch.cuda.get_device_name(0))
+else:
+    print('No GPU available, using the CPU instead.')
+    device = torch.device("cpu")
 # set gpu
-os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
-device = torch.device("cuda")
+# os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
+# device = torch.device("cuda")
 is_cuda = True
 n_gpu = torch.cuda.device_count()
 if n_gpu > 0:
     torch.cuda.manual_seed_all(args.seed)
 
-# # initialize model
-# print('init model...')
-# utils.torch_show_all_params(model)
+# initialize model
+print('init model...')
+utils.torch_show_all_params(model)
 # utils.torch_init_model(model, args.init_restore_dir)  # load the saved model according to the checkpoint_dir when prediction
-# if args.float16:
-#     model.half()
-# model.to(device)
-# if n_gpu > 1:
-#     model = torch.nn.DataParallel(model)
+if args.float16:
+    model.half()
+model.to(device)
+if n_gpu > 1:
+    model = torch.nn.DataParallel(model)
 
 print("Initial Configuaration Time: {}".format(time() - t_config))
 
@@ -722,9 +729,10 @@ def evaluate(tokenizer, model, dev_data_gen):
 ##########################################################################################
 def predict_ner(doc):
     headers = {"Content-Type": "application/json"}
-    url = "your-ner-model-url"
+    url = "https://github.com/explosion/spacy-models/releases/download/zh_core_web_sm-3.0.0/zh_core_web_sm-3.0.0.tar.gz"
     text = {"text": doc}
     result = requests.request("POST", url, json=text, headers=headers)
+    print(result)
     lst_doc = result.json()
     return lst_doc
 
@@ -771,7 +779,9 @@ def predict_now(doc, args=None, tokenizer=None, model=None, is_cuda=True, is_pri
     t_predict = time()
     pre_all = list()
     print("NER model ...")
-    lst_doc = predict_ner(doc)
+    # lst_doc = predict_ner(doc)
+    lst_doc = [{"text": "赛尔提是本作主角，来自爱尔兰的无头骑士，性别常被认错，但确实为女性。", "entity": ["赛尔提","本作主角","爱尔兰","无头骑士","性别","女性"]}, {"text":  "赛尔提本来是抱着头、驾着无头马的妖精。", "entity": ["赛尔提","头","无头马","妖精"]}]
+    
     print("Classify model ...")
     for piece in lst_doc:
         input_data, max_seq_len = string2token(tokenizer, text=piece["text"], lst_entities=piece["entity"],
@@ -895,12 +905,12 @@ def predict_all(load_path, args=None, tokenizer=None, model=None, is_cuda=True):
 # Main
 ##########################################################################################
 if __name__ == "__main__":
-    s = """赛尔提是本作主角，来自爱尔兰的无头骑士，性别常被认错，但确实为女性。赛尔提本来是抱着头、驾着无头马的妖精。
-               赛尔提乘坐的黑摩托车，是一匹马变形而成的。二十多年前，岸谷森严使用妖刀罪歌得到她的头。
-               陷于迷茫的她为了找回头于是离开爱尔兰追到了日本池袋。
-               赛尔提来到池袋后平时是在作运输、保镖之类的工作，并成为当地有名的都市传说。
-               赛尔提在渡船上遇上新罗父子，结识后住进了他们家中，就这样与新罗同居至今。
-               赛尔提喜欢新罗，是DOLLARS的一员，少数知道首领身份的人。赛尔提是羽岛幽平和圣边琉璃的粉丝。"""
+    s = """赛尔提是本作主角，来自爱尔兰的无头骑士，性别常被认错，但确实为女性。赛尔提本来是抱着头、驾着无头马的妖精。"""
+            #   赛尔提乘坐的黑摩托车，是一匹马变形而成的。二十多年前，岸谷森严使用妖刀罪歌得到她的头。
+            #   陷于迷茫的她为了找回头于是离开爱尔兰追到了日本池袋。
+            #   赛尔提来到池袋后平时是在作运输、保镖之类的工作，并成为当地有名的都市传说。
+            #   赛尔提在渡船上遇上新罗父子，结识后住进了他们家中，就这样与新罗同居至今。
+            #   赛尔提喜欢新罗，是DOLLARS的一员，少数知道首领身份的人。赛尔提是羽岛幽平和圣边琉璃的粉丝。"""
 
     # create train & dev samples from raw data
     raw2json(tokenizer,
@@ -914,7 +924,7 @@ if __name__ == "__main__":
              repeat_time=args.repeat_time)
 
     # train & evaluate model
-    train(args=args, tokenizer=tokenizer, model=None, is_cuda=is_cuda, n_gpu=n_gpu)
+    train(args=args, tokenizer=tokenizer, model=model, is_cuda=is_cuda, n_gpu=n_gpu)
 
     # predict only one sample:
     result = predict_one(s, args=args, tokenizer=tokenizer, model=model, is_cuda=is_cuda)
