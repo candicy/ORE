@@ -212,7 +212,7 @@ def raw2json(tokenizer, load_path, save_path=None, max_lines=100, train_split=0.
     unique_id = 0  # count samples
     c_entity = 0  # count entitiess
 
-    with open(load_path, "r", encoding="gbk") as f:
+    with open(load_path, "r", encoding="utf-8") as f:
         for i_line, line in enumerate(f):
             if i_line > max_lines:  # control the number of operated samples
                 break
@@ -380,11 +380,11 @@ def train(args=None, model=None, is_cuda=None, n_gpu=None):
     if os.path.exists(args.log_file):
         os.remove(args.log_file)
 
-    print(train_data_gen)
+    # print(train_data_gen)
     steps_per_epoch = len(train_data_gen)
-    print(steps_per_epoch)
+    # print(steps_per_epoch)
     args.eval_steps = int(args.eval_steps * steps_per_epoch)
-    print("args.eval_steps * steps_per_epoch: ", args.eval_steps * steps_per_epoch)
+    # print("args.eval_steps * steps_per_epoch: ", args.eval_steps * steps_per_epoch)
     total_steps = steps_per_epoch * args.train_epochs
     print("steps per epoch: {}; total steps: {}; warmup steps: {}"
           .format(steps_per_epoch, total_steps, int(args.warmup_rate * total_steps)))
