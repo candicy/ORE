@@ -28,13 +28,13 @@ t_config = time()
 
 # set hyper-parameters
 parser = argparse.ArgumentParser()
-parser.add_argument('--load_train_path', type=str, default="your/path/to/put/train_data.json")  # your path
-parser.add_argument('--gpu_ids', type=str, default='0, 1, 2, 3')
+parser.add_argument('--load_train_path', type=str, default="data_examples/train_data.json")  # your path
+parser.add_argument('--gpu_ids', type=str, default='0')
 parser.add_argument('--model_name', type=str, default='bert_chinese')  # used pre-trained language model name
 parser.add_argument('--suffix_name', type=str, default='ner')  # fine-tuned model suffix name
 
 parser.add_argument('--train_epochs', type=int, default=20)
-parser.add_argument('--n_batch', type=int, default=128)
+parser.add_argument('--n_batch', type=int, default=1)
 parser.add_argument('--class_num', type=int, default=3)  # B, I, O for NER
 parser.add_argument('--lr', type=float, default=5e-5)
 parser.add_argument('--dropout', type=float, default=0.1)
@@ -82,7 +82,7 @@ np.random.seed(args.seed)
 torch.manual_seed(args.seed)
 
 # set gpu
-os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
+# os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
 device = torch.device("cuda")
 is_cuda = True
 n_gpu = torch.cuda.device_count()
@@ -92,7 +92,7 @@ if n_gpu > 0:
 # initialize model
 print('init model...')
 utils.torch_show_all_params(model)
-utils.torch_init_model(model, args.init_restore_dir)  # load the saved model according to the checkpoint_dir when prediction
+# utils.torch_init_model(model, args.init_restore_dir)  # load the saved model according to the checkpoint_dir when prediction
 if args.float16:
     model.half()
 model.to(device)
@@ -212,7 +212,7 @@ def raw2json(tokenizer, load_path, save_path=None, max_lines=100, train_split=0.
     unique_id = 0  # count samples
     c_entity = 0  # count entitiess
 
-    with open(load_path, "r") as f:
+    with open(load_path, "r", encoding="gbk") as f:
         for i_line, line in enumerate(f):
             if i_line > max_lines:  # control the number of operated samples
                 break
@@ -380,8 +380,11 @@ def train(args=None, model=None, is_cuda=None, n_gpu=None):
     if os.path.exists(args.log_file):
         os.remove(args.log_file)
 
+    print(train_data_gen)
     steps_per_epoch = len(train_data_gen)
+    print(steps_per_epoch)
     args.eval_steps = int(args.eval_steps * steps_per_epoch)
+    print("args.eval_steps * steps_per_epoch: ", args.eval_steps * steps_per_epoch)
     total_steps = steps_per_epoch * args.train_epochs
     print("steps per epoch: {}; total steps: {}; warmup steps: {}"
           .format(steps_per_epoch, total_steps, int(args.warmup_rate * total_steps)))
@@ -429,7 +432,8 @@ def train(args=None, model=None, is_cuda=None, n_gpu=None):
                 model.zero_grad()
                 global_steps += 1
                 iteration += 1
-
+                
+                print(args.eval_steps)
                 if global_steps % args.eval_steps == 0:
                     f1 = evaluate(model, dev_data_gen)
                     with open(args.log_file, 'a') as aw:
