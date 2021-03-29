@@ -26,13 +26,13 @@ t_config = time()
 
 # set hyper-parameters
 parser = argparse.ArgumentParser()
-parser.add_argument('--load_train_path', type=str, default="data_examples/train_data.json")  # your path
-parser.add_argument('--load_test_path', type=str, default="data_examples/test_data.json")  # your path
+parser.add_argument('--load_train_path', type=str, default="SAOKE/train_data.json")  # your path
+parser.add_argument('--load_test_path', type=str, default="SAOKE/test_data.json")  # your path
 parser.add_argument('--gpu_ids', type=str, default='0')
 parser.add_argument('--model_name', type=str, default='bert_chinese')  # used pre-trained language model name
 parser.add_argument('--suffix_name', type=str, default='re')  # fine-tuned model suffix name
 
-parser.add_argument('--train_epochs', type=int, default=10)
+parser.add_argument('--train_epochs', type=int, default=5)
 parser.add_argument('--n_batch', type=int, default=16)
 parser.add_argument('--class_num', type=int, default=1)  # does relation exist between current entities? yes or no
 parser.add_argument('--lr', type=float, default=5e-5)
@@ -50,7 +50,7 @@ parser.add_argument('--vocab_size', type=int, default=21128)
 parser.add_argument('--cls_weight', type=str, default=None)  # [a, b], a for pos, b for neg, None for balanced case
 parser.add_argument('--max_seq_length', type=int, default=128)  # maximum sentence length
 parser.add_argument('--max_lines', type=str, default=300000)  # number of lines loaded from the raw corpus
-parser.add_argument('--train_split', type=str, default=0.6)  # probability to choose the sample for train, else for dev
+parser.add_argument('--train_split', type=str, default=0.7)  # probability to choose the sample for train, else for dev
 parser.add_argument('--blank_ratio', type=str, default=0.5)  # probability to mask entity in sentence
 parser.add_argument('--num_relation', type=str,
                     default=-1)  # maximum number for each relation type from the triples
@@ -105,6 +105,7 @@ if n_gpu > 0:
 print('init model...')
 utils.torch_show_all_params(model)
 # utils.torch_init_model(model, args.init_restore_dir)  # load the saved model according to the checkpoint_dir when prediction
+print(args.init_restore_dir)
 if args.float16:
     model.half()
 model.to(device)
@@ -250,7 +251,7 @@ def get_input_ids(tokenizer, text, entity_head, entity_tail, relation=None, max_
 
 def raw2json(tokenizer, load_path, save_path=None, max_lines=100, max_seq_length=128, train_split=0.95, print_time=100,
              blank_ratio=0.4, num_relation=-1, repeat_time=[1, 1, 1]):
-    
+    print(raw2json)
     global DATA_DIR
     features_train = list()
     features_dev = list()
@@ -261,12 +262,12 @@ def raw2json(tokenizer, load_path, save_path=None, max_lines=100, max_seq_length
     dict_relation = dict()  # record relation types
 
     
-    with open(load_path, "r", encoding="gbk") as f:
+    with open(load_path, "r", encoding='utf-8') as f:
         for i_line, line in enumerate(f):
             if i_line > max_lines:  # control the number of operated samples
                 break
             line_now = json.loads(line)
-            lst_samples = line_now.get("EL_res")
+            lst_samples = line_now.get("doc")
             for sample in lst_samples:
                 # choose train or dev by probability
                 is_dev = -1 if random.random() > train_split else blank_ratio  # dev samples should not be blanked
@@ -289,10 +290,12 @@ def raw2json(tokenizer, load_path, save_path=None, max_lines=100, max_seq_length
                 for fact in facts:
                     if fact[-1]:  # a pos_triple
                         lst_pos_triple.append(fact)
-                        lst_pair.remove((fact[0], fact[1]))
+                        if (fact[0], fact[1]) in lst_pair:
+                            lst_pair.remove((fact[0], fact[1]))
                     elif fact[1]:  # a pos_tuple
                         lst_pos_tuple.append(fact)
-                        lst_pair.remove((fact[0], fact[1]))
+                        if (fact[0], fact[1]) in lst_pair:
+                            lst_pair.remove((fact[0], fact[1]))
                     else:  # a neg entity
                         continue
                 if len(lst_pos_triple) == 0:  # there is no pos_triple in this line
@@ -315,7 +318,9 @@ def raw2json(tokenizer, load_path, save_path=None, max_lines=100, max_seq_length
                     check_tag = "positive_triple:" if i_fact < 5 else None
                     lst_mode = list()
                     for _ in range(repeat_time_now[0]):
-                        input_ids, label_start, label_end, blank_mode = get_input_ids(tokenizer, text, fact[0], fact[1],
+                        if len(text) > 0 and len(fact[0]) > 0 and len(fact[1]) > 0:
+                            input_ids, label_start, label_end, blank_mode = get_input_ids(tokenizer, text, 
+                                                                                      fact[0], fact[1],
                                                                                       relation=fact[2],
                                                                                       max_seq_length=max_seq_length,
                                                                                       blank_ratio=is_dev,
@@ -354,7 +359,9 @@ def raw2json(tokenizer, load_path, save_path=None, max_lines=100, max_seq_length
                     check_tag = "positive_tuple:" if i_fact < 5 else None
                     lst_mode = list()
                     for _ in range(repeat_time_now[1]):
-                        input_ids, label_start, label_end, blank_mode = get_input_ids(tokenizer, text, fact[0], fact[1],
+                        if len(text) > 0 and len(fact[0]) > 0 and len(fact[1]) > 0:
+                            input_ids, label_start, label_end, blank_mode = get_input_ids(tokenizer, text, 
+                                                                                      fact[0], fact[1],
                                                                                       max_seq_length=max_seq_length,
                                                                                       blank_ratio=is_dev,
                                                                                       is_check=check_tag)
@@ -386,7 +393,9 @@ def raw2json(tokenizer, load_path, save_path=None, max_lines=100, max_seq_length
                     check_tag = "negative_tuple:" if i_fact < 5 else None
                     lst_mode = list()
                     for _ in range(repeat_time_now[2]):
-                        input_ids, label_start, label_end, blank_mode = get_input_ids(tokenizer, text, fact[0], fact[1],
+                        if len(text) > 0 and len(fact[0]) > 0 and len(fact[1]) > 0:
+                            input_ids, label_start, label_end, blank_mode = get_input_ids(tokenizer, text, 
+                                                                                      fact[0], fact[1],
                                                                                       max_seq_length=max_seq_length,
                                                                                       blank_ratio=is_dev,
                                                                                       is_check=check_tag)
@@ -507,7 +516,9 @@ def string2token(tokenizer, text, lst_entities, max_seq_length=128):
     features = list()
     max_seq_len = 0
     for entity_head, entity_tail in permutations(lst_entities, 2):
-        input_ids = get_input_ids_test(tokenizer, text, entity_head, entity_tail, max_seq_length=max_seq_length)
+        input_ids = None
+        if len(text) > 0 and len(entity_head) > 0 and len(entity_tail) > 0:
+            input_ids = get_input_ids_test(tokenizer, text, entity_head, entity_tail, max_seq_length=max_seq_length)
         if input_ids:
             features.append({'input_ids': input_ids})
             if len(input_ids) > max_seq_len:
@@ -773,14 +784,20 @@ def predict_span(tokenizer, model, input_data_gen):
         return lst_pre
 
 
-def predict_now(doc, args=None, tokenizer=None, model=None, is_cuda=True, is_print=False):
+def predict_now(doc, entity, args=None, tokenizer=None, model=None, is_cuda=True, is_print=False):
     assert args and tokenizer and model
     print("***** Predict *****")
     t_predict = time()
     pre_all = list()
     print("NER model ...")
+    
     # lst_doc = predict_ner(doc)
-    lst_doc = [{"text": "赛尔提是本作主角，来自爱尔兰的无头骑士，性别常被认错，但确实为女性。", "entity": ["赛尔提","本作主角","爱尔兰","无头骑士","性别","女性"]}, {"text":  "赛尔提本来是抱着头、驾着无头马的妖精。", "entity": ["赛尔提","头","无头马","妖精"]}]
+    lst_doc = []
+    
+    one_lst_doc = {"text": doc, "entity": entity}
+    lst_doc.append(one_lst_doc)
+    
+    # lst_doc = [{"text": "赛尔提是本作主角，来自爱尔兰的无头骑士，性别常被认错，但确实为女性。", "entity": ["赛尔提","本作主角","爱尔兰","无头骑士","性别","女性"]}, {"text":  "赛尔提本来是抱着头、驾着无头马的妖精。", "entity": ["赛尔提","头","无头马","妖精"]}]
     
     print("Classify model ...")
     for piece in lst_doc:
@@ -864,24 +881,34 @@ def get_metric(label_pre, label_true, sample, args):
 def predict_all(load_path, args=None, tokenizer=None, model=None, is_cuda=True):
     assert args and tokenizer and model
     assert load_path.endswith(".json")
-    with open(load_path, "rb") as f:
-        d = json.load(f)
+    with open(load_path, "r", encoding='utf-8') as f:
+        # d = json.load(f)
         span_f1, span_recall, span_precision = 0.0, 0.0, 0.0
         classify_f1, classify_recall, classify_precision = 0.0, 0.0, 0.0
         count_sample = 0
-        for sample in d:
-            if sample.get("text", None):
-                print("The {}th sample ...".format(count_sample))
-                label_pre = predict_now(sample.get("text", None), args, tokenizer, model, is_cuda)
-                label_true = sample.get("triples", None)
-                res_now = get_metric(label_pre, label_true, sample, args)
-                span_f1 += res_now["span_f1"]
-                span_recall += res_now["span_recall"]
-                span_precision += res_now["span_precision"]
-                classify_f1 += res_now["classify_f1"]
-                classify_recall += res_now["classify_recall"]
-                classify_precision += res_now["classify_precision"]
-                count_sample += 1
+        for i_line, line in enumerate(f):
+            # print(i_line)
+            line_now = json.loads(line)
+            doc = line_now.get("doc")
+            
+            for sample in doc:
+                if sample.get("text", None):
+                    print("The {}th sample ...".format(count_sample))
+                    label_pre = predict_now(sample.get("text", None), list(sample.get("entity_idx").keys()), args, tokenizer, model, is_cuda)
+                    print("label_pre:")
+                    print(label_pre)
+                    
+                    label_true = sample.get("triples", None)
+                    print("label_true:")
+                    print(sample.get("triples", None))
+                    res_now = get_metric(label_pre, label_true, sample, args)
+                    span_f1 += res_now["span_f1"]
+                    span_recall += res_now["span_recall"]
+                    span_precision += res_now["span_precision"]
+                    classify_f1 += res_now["classify_f1"]
+                    classify_recall += res_now["classify_recall"]
+                    classify_precision += res_now["classify_precision"]
+                    count_sample += 1
     span_f1 /= float(count_sample)
     span_recall /= float(count_sample)
     span_precision /= float(count_sample)
@@ -927,9 +954,9 @@ if __name__ == "__main__":
     train(args=args, tokenizer=tokenizer, model=model, is_cuda=is_cuda, n_gpu=n_gpu)
 
     # predict only one sample:
-    result = predict_one(s, args=args, tokenizer=tokenizer, model=model, is_cuda=is_cuda)
-    for i in result:
-        print(i)
+    # result = predict_one(s, args=args, tokenizer=tokenizer, model=model, is_cuda=is_cuda)
+    # for i in result:
+    #     print(i)
 
     # predict samples:
     results = predict_all(load_path=args.load_test_path,
